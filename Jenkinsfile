@@ -2,6 +2,7 @@ pipeline {
 
     agent any
 
+
     // ============================================================
     // PIPELINE OPTIONS
     // ============================================================
@@ -49,13 +50,13 @@ pipeline {
         booleanParam(
             name: 'RUN_DEPENDENCY_CHECK',
             defaultValue: false,
-            description: 'Run OWASP Dependency-Check. Downloads Maven plugin/data on first run.'
+            description: 'Run OWASP Dependency-Check'
         )
 
         booleanParam(
             name: 'PUSH_ECR',
             defaultValue: false,
-            description: 'Push immutable Docker images to AWS ECR. Requires AWS credentials on Jenkins agent.'
+            description: 'Push Docker image to AWS ECR'
         )
 
         string(
@@ -78,24 +79,14 @@ pipeline {
 
     environment {
 
-        /*
-         * E-commerce application repository
-         */
         APP_DIR = 'ecommerce-app'
 
-        /*
-         * Current Phase 3.5 microservice
-         */
         SERVICE_DIR = 'ecommerce-app/services/user-service'
 
-        /*
-         * Docker image
-         */
-        IMAGE_NAME = "ecommerce-user-service:${BUILD_NUMBER}"
+        FRONTEND_DIR = 'ecommerce-app/frontend'
 
-        /*
-         * Trivy cache
-         */
+        IMAGE_NAME = "ecommerce-application:${BUILD_NUMBER}"
+
         TRIVY_CACHE_DIR = "${WORKSPACE}/.trivy-cache"
     }
 
@@ -107,23 +98,23 @@ pipeline {
     stages {
 
 
-        // ============================================================
-        // 1. CHECKOUT DEVOPS + APPLICATION REPOSITORIES
-        // ============================================================
+        // ========================================================
+        // 1. CHECKOUT
+        // ========================================================
 
         stage('Checkout') {
 
             steps {
 
                 echo '============================================================'
-                echo 'Checking out DevOps repository'
+                echo 'CHECKOUT DEVOPS REPOSITORY'
                 echo '============================================================'
 
                 checkout scm
 
 
                 echo '============================================================'
-                echo 'Checking out E-commerce application repository'
+                echo 'CHECKOUT E-COMMERCE APPLICATION'
                 echo '============================================================'
 
                 dir(env.APP_DIR) {
@@ -139,15 +130,15 @@ pipeline {
 
 
                 echo '============================================================'
-                echo 'Checkout completed'
+                echo 'CHECKOUT COMPLETED'
                 echo '============================================================'
             }
         }
 
 
-        // ============================================================
+        // ========================================================
         // 2. WORKSPACE INFORMATION
-        // ============================================================
+        // ========================================================
 
         stage('Workspace Info') {
 
@@ -160,6 +151,7 @@ pipeline {
                     echo "SYSTEM INFORMATION"
                     echo "============================================================"
 
+                    echo
                     echo "JAVA"
                     java -version
 
@@ -203,42 +195,49 @@ pipeline {
 
                     pwd
 
-
-                    echo
-                    echo "Top-level workspace:"
                     ls -la
 
 
                     echo
-                    echo "Application directory:"
+                    echo "============================================================"
+                    echo "APPLICATION DIRECTORY"
+                    echo "============================================================"
+
                     ls -la "$APP_DIR"
 
 
                     echo
-                    echo "Service directory:"
-                    ls -la "$SERVICE_DIR"
+                    echo "============================================================"
+                    echo "FRONTEND DIRECTORY"
+                    echo "============================================================"
+
+                    test -d "$FRONTEND_DIR"
+
+                    ls -la "$FRONTEND_DIR"
+
+                    test -f "$FRONTEND_DIR/package.json"
 
 
                     echo
                     echo "============================================================"
-                    echo "VALIDATING MAVEN PROJECT"
+                    echo "BACKEND SERVICE DIRECTORY"
                     echo "============================================================"
+
+                    test -d "$SERVICE_DIR"
+
+                    ls -la "$SERVICE_DIR"
 
                     test -f "$SERVICE_DIR/pom.xml"
 
-                    echo "Maven POM found:"
-                    ls -lh "$SERVICE_DIR/pom.xml"
-
 
                     echo
                     echo "============================================================"
-                    echo "VALIDATING DOCKERFILE"
+                    echo "COMBINED DOCKERFILE"
                     echo "============================================================"
 
-                    test -f "$SERVICE_DIR/Dockerfile"
+                    test -f "$APP_DIR/Dockerfile"
 
-                    echo "Dockerfile found:"
-                    ls -lh "$SERVICE_DIR/Dockerfile"
+                    ls -lh "$APP_DIR/Dockerfile"
 
 
                     echo
@@ -246,15 +245,15 @@ pipeline {
                     echo "APPLICATION GIT COMMIT"
                     echo "============================================================"
 
-                    git -C "$APP_DIR" rev-parse --short HEAD
+                    git -C "$APP_DIR" rev-parse HEAD
                 '''
             }
         }
 
 
-        // ============================================================
+        // ========================================================
         // 3. MAVEN BUILD & UNIT TEST
-        // ============================================================
+        // ========================================================
 
         stage('Maven Build & Unit Test') {
 
@@ -269,23 +268,6 @@ pipeline {
                         echo "MAVEN BUILD & UNIT TEST"
                         echo "============================================================"
 
-                        echo "Service directory:"
-                        pwd
-
-
-                        echo
-                        echo "Maven version:"
-                        mvn -version
-
-
-                        echo
-                        echo "Maven POM:"
-                        ls -lh pom.xml
-
-
-                        echo
-                        echo "Running Maven clean verify..."
-
                         mvn -B -ntp clean verify
 
 
@@ -296,7 +278,7 @@ pipeline {
 
 
                         echo
-                        echo "Generated JAR files:"
+                        echo "GENERATED JAR FILES"
 
                         find target \
                           -maxdepth 2 \
@@ -321,57 +303,82 @@ pipeline {
         }
 
 
-        // ============================================================
+        // ========================================================
         // 4. FRONTEND BUILD
-        // ============================================================
+        // ========================================================
 
         stage('Frontend Build') {
 
             steps {
 
-                script {
+                dir(env.FRONTEND_DIR) {
 
-                    def frontendExists = fileExists(
-                        "${env.APP_DIR}/frontend/package.json"
-                    )
+                    sh '''
+                        set -eux
 
+                        echo "============================================================"
+                        echo "FRONTEND BUILD"
+                        echo "============================================================"
 
-                    if (frontendExists) {
-
-                        dir("${env.APP_DIR}/frontend") {
-
-                            sh '''
-                                set -eux
-
-                                echo "============================================================"
-                                echo "FRONTEND NPM INSTALL"
-                                echo "============================================================"
-
-                                npm install --no-audit --no-fund
+                        echo "Frontend directory:"
+                        pwd
 
 
-                                echo
-                                echo "============================================================"
-                                echo "FRONTEND BUILD"
-                                echo "============================================================"
+                        echo
+                        echo "package.json:"
+                        test -f package.json
+                        ls -lh package.json
 
-                                npm run build
-                            '''
-                        }
 
-                    } else {
+                        echo
+                        echo "Installing frontend dependencies..."
 
-                        echo 'Frontend directory/package.json not found.'
-                        echo 'Frontend build is skipped for this Phase 3.5 service build.'
-                    }
+
+                        npm install \
+                          --no-audit \
+                          --no-fund
+
+
+                        echo
+                        echo "============================================================"
+                        echo "RUNNING REACT BUILD"
+                        echo "============================================================"
+
+
+                        npm run build
+
+
+                        echo
+                        echo "============================================================"
+                        echo "FRONTEND BUILD COMPLETED"
+                        echo "============================================================"
+
+
+                        test -d dist
+
+
+                        echo
+                        echo "Frontend build output:"
+
+                        ls -lah dist
+
+
+                        echo
+                        echo "Frontend files:"
+
+                        find dist \
+                          -maxdepth 2 \
+                          -type f \
+                          -print
+                    '''
                 }
             }
         }
 
 
-        // ============================================================
+        // ========================================================
         // 5. STATIC SECURITY - SEMGREP
-        // ============================================================
+        // ========================================================
 
         stage('Static Security - Semgrep') {
 
@@ -384,12 +391,14 @@ pipeline {
                     echo "SEMGREP SECURITY SCAN"
                     echo "============================================================"
 
+
                     semgrep scan \
                       --config p/java \
                       --config p/typescript \
                       --error \
                       --exclude node_modules \
                       --exclude target \
+                      --exclude dist \
                       --exclude .trivy-cache \
                       .
                 '''
@@ -397,9 +406,9 @@ pipeline {
         }
 
 
-        // ============================================================
+        // ========================================================
         // 6. FILESYSTEM SECURITY - TRIVY
-        // ============================================================
+        // ========================================================
 
         stage('Filesystem Security - Trivy') {
 
@@ -412,7 +421,9 @@ pipeline {
                     echo "TRIVY FILESYSTEM SECURITY SCAN"
                     echo "============================================================"
 
+
                     mkdir -p "$TRIVY_CACHE_DIR"
+
 
                     trivy fs \
                       --scanners vuln,secret,misconfig \
@@ -426,9 +437,9 @@ pipeline {
         }
 
 
-        // ============================================================
+        // ========================================================
         // 7. DEPENDENCY SECURITY - OWASP
-        // ============================================================
+        // ========================================================
 
         stage('Dependency Security - OWASP') {
 
@@ -451,6 +462,7 @@ pipeline {
                         echo "OWASP DEPENDENCY CHECK"
                         echo "============================================================"
 
+
                         mvn -B -ntp \
                           -DskipTests \
                           org.owasp:dependency-check-maven:check \
@@ -460,117 +472,115 @@ pipeline {
             }
         }
 
-        // ============================================================
-// 8. SONARQUBE
-// ============================================================
 
-stage('SonarQube') {
+        // ========================================================
+        // 8. SONARQUBE
+        // ========================================================
 
-    steps {
+        stage('SonarQube') {
 
-        echo '============================================================'
-        echo 'SONARQUBE CODE ANALYSIS'
-        echo '============================================================'
+            steps {
 
-
-        withCredentials([
-            string(
-                credentialsId: 'sonar-token',
-                variable: 'SONAR_TOKEN'
-            )
-        ]) {
+                echo '============================================================'
+                echo 'SONARQUBE CODE ANALYSIS'
+                echo '============================================================'
 
 
-            // ----------------------------------------------------
-            // SONARQUBE ANALYSIS
-            // ----------------------------------------------------
+                withCredentials([
 
-            withSonarQubeEnv('SonarQube') {
-
-                sh '''
-                    set -eux
-
-                    echo "============================================================"
-                    echo "SONARQUBE ANALYSIS"
-                    echo "============================================================"
-
-                    echo "SonarQube URL: $SONAR_HOST_URL"
-                    echo "Project Key: ecommerce-user-service"
-
-                    test -f "$SERVICE_DIR/pom.xml"
-
-
-                    mvn -B -ntp \
-                      -f "$SERVICE_DIR/pom.xml" \
-                      -DskipTests \
-                      -Dsonar.projectKey=ecommerce-user-service \
-                      -Dsonar.projectName=ecommerce-user-service \
-                      -Dsonar.host.url="$SONAR_HOST_URL" \
-                      -Dsonar.token="$SONAR_TOKEN" \
-                      org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-
-
-                    echo
-                    echo "============================================================"
-                    echo "SONARQUBE ANALYSIS SUBMITTED"
-                    echo "============================================================"
-                '''
-            }
-
-
-            // ----------------------------------------------------
-            // QUALITY GATE
-            // ----------------------------------------------------
-
-            echo '============================================================'
-            echo 'WAITING FOR SONARQUBE QUALITY GATE'
-            echo '============================================================'
-
-
-            timeout(
-                time: 10,
-                unit: 'MINUTES'
-            ) {
-
-                script {
-
-                    def qualityGate = waitForQualityGate(
-                        abortPipeline: false
+                    string(
+                        credentialsId: 'sonar-token',
+                        variable: 'SONAR_TOKEN'
                     )
 
+                ]) {
+
+
+                    withSonarQubeEnv('SonarQube') {
+
+                        sh '''
+                            set -eux
+
+                            echo "============================================================"
+                            echo "SONARQUBE ANALYSIS"
+                            echo "============================================================"
+
+                            echo "SonarQube URL: $SONAR_HOST_URL"
+
+                            echo "Project Key: ecommerce-user-service"
+
+
+                            test -f "$SERVICE_DIR/pom.xml"
+
+
+                            mvn -B -ntp \
+                              -f "$SERVICE_DIR/pom.xml" \
+                              -DskipTests \
+                              -Dsonar.projectKey=ecommerce-user-service \
+                              -Dsonar.projectName=ecommerce-user-service \
+                              -Dsonar.host.url="$SONAR_HOST_URL" \
+                              -Dsonar.token="$SONAR_TOKEN" \
+                              org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+
+
+                            echo
+                            echo "============================================================"
+                            echo "SONARQUBE ANALYSIS SUBMITTED"
+                            echo "============================================================"
+                        '''
+                    }
+
 
                     echo '============================================================'
-                    echo "SONARQUBE QUALITY GATE STATUS: ${qualityGate.status}"
+                    echo 'WAITING FOR SONARQUBE QUALITY GATE'
                     echo '============================================================'
 
 
-                    if (qualityGate.status == 'OK') {
+                    timeout(
+                        time: 10,
+                        unit: 'MINUTES'
+                    ) {
 
-                        echo '============================================================'
-                        echo 'SONARQUBE QUALITY GATE PASSED'
-                        echo '============================================================'
+                        script {
 
-                    } else {
+                            def qualityGate = waitForQualityGate(
+                                abortPipeline: false
+                            )
 
-                        echo '============================================================'
-                        echo "SONARQUBE QUALITY GATE FAILED"
-                        echo "Status: ${qualityGate.status}"
-                        echo '============================================================'
 
-                        error(
-                            "SonarQube Quality Gate failed: ${qualityGate.status}"
-                        )
+                            echo '============================================================'
+                            echo "SONARQUBE QUALITY GATE STATUS: ${qualityGate.status}"
+                            echo '============================================================'
+
+
+                            if (qualityGate.status == 'OK') {
+
+                                echo '============================================================'
+                                echo 'SONARQUBE QUALITY GATE PASSED'
+                                echo '============================================================'
+
+                            } else {
+
+                                echo '============================================================'
+                                echo "SONARQUBE QUALITY GATE FAILED"
+                                echo "STATUS: ${qualityGate.status}"
+                                echo '============================================================'
+
+
+                                error(
+                                    "SonarQube Quality Gate failed: ${qualityGate.status}"
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-}
 
 
-        // ============================================================
-        // 9. DOCKER BUILD
-        // ============================================================
+        // ========================================================
+        // 9. DOCKER BUILD - FRONTEND + BACKEND
+        // ========================================================
 
         stage('Docker Build') {
 
@@ -579,13 +589,13 @@ stage('SonarQube') {
                 script {
 
                     env.GIT_SHA = sh(
-                        script: 'git -C "$SERVICE_DIR" rev-parse HEAD',
+                        script: 'git -C "$APP_DIR" rev-parse HEAD',
                         returnStdout: true
                     ).trim()
 
 
                     env.GIT_SHORT_SHA = sh(
-                        script: 'git -C "$SERVICE_DIR" rev-parse --short HEAD',
+                        script: 'git -C "$APP_DIR" rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
                 }
@@ -595,25 +605,57 @@ stage('SonarQube') {
                     set -eux
 
                     echo "============================================================"
-                    echo "DOCKER BUILD"
+                    echo "DOCKER BUILD - FRONTEND + BACKEND"
                     echo "============================================================"
 
-                    echo "Service directory : $SERVICE_DIR"
-                    echo "Docker image      : $IMAGE_NAME"
-                    echo "Git SHA           : $GIT_SHA"
+
+                    echo "Application directory : $APP_DIR"
+
+                    echo "Frontend directory    : $FRONTEND_DIR"
+
+                    echo "Backend directory     : $SERVICE_DIR"
+
+                    echo "Docker image          : $IMAGE_NAME"
+
+                    echo "Git SHA               : $GIT_SHA"
 
 
-                    test -f "$SERVICE_DIR/Dockerfile"
+                    echo
+                    echo "============================================================"
+                    echo "VALIDATING DOCKER BUILD CONTEXT"
+                    echo "============================================================"
+
+
+                    test -f "$APP_DIR/Dockerfile"
+
+                    test -f "$FRONTEND_DIR/package.json"
+
+                    test -d "$FRONTEND_DIR/dist"
+
+                    test -f "$SERVICE_DIR/pom.xml"
+
+
+                    echo
+                    echo "Frontend build output:"
+                    du -sh "$FRONTEND_DIR/dist"
+
+
+                    echo
+                    echo "============================================================"
+                    echo "BUILDING COMBINED DOCKER IMAGE"
+                    echo "============================================================"
 
 
                     docker build \
                       --pull \
                       -t "$IMAGE_NAME" \
-                      "$SERVICE_DIR"
+                      "$APP_DIR"
 
 
                     echo
-                    echo "Docker image created successfully:"
+                    echo "============================================================"
+                    echo "DOCKER IMAGE CREATED"
+                    echo "============================================================"
 
 
                     docker image inspect "$IMAGE_NAME" >/dev/null
@@ -625,9 +667,9 @@ stage('SonarQube') {
         }
 
 
-        // ============================================================
+        // ========================================================
         // 10. CONTAINER SECURITY - TRIVY
-        // ============================================================
+        // ========================================================
 
         stage('Container Security - Trivy') {
 
@@ -653,9 +695,9 @@ stage('SonarQube') {
         }
 
 
-        // ============================================================
+        // ========================================================
         // 11. ECR PUSH
-        // ============================================================
+        // ========================================================
 
         stage('ECR Push') {
 
@@ -678,6 +720,7 @@ stage('SonarQube') {
 
 
                     : "${AWS_REGION:?AWS_REGION is required}"
+
                     : "${ECR_REPOSITORY:?ECR_REPOSITORY is required}"
 
 
@@ -692,9 +735,16 @@ stage('SonarQube') {
 
 
                     echo "AWS Account : $ACCOUNT_ID"
+
                     echo "AWS Region  : $AWS_REGION"
+
                     echo "Registry    : $REGISTRY"
+
                     echo "Repository  : $ECR_REPOSITORY"
+
+
+                    echo
+                    echo "Checking ECR repository..."
 
 
                     aws ecr describe-repositories \
@@ -708,6 +758,7 @@ stage('SonarQube') {
                       >/dev/null
 
 
+                    echo
                     echo "Logging in to ECR..."
 
 
@@ -718,6 +769,7 @@ stage('SonarQube') {
                       --password-stdin "$REGISTRY"
 
 
+                    echo
                     echo "Tagging Docker image..."
 
 
@@ -731,6 +783,7 @@ stage('SonarQube') {
                       "$REGISTRY/$ECR_REPOSITORY:$GIT_SHA"
 
 
+                    echo
                     echo "Pushing BUILD_NUMBER tag..."
 
 
@@ -738,6 +791,7 @@ stage('SonarQube') {
                       "$REGISTRY/$ECR_REPOSITORY:$BUILD_NUMBER"
 
 
+                    echo
                     echo "Pushing Git SHA tag..."
 
 
@@ -762,9 +816,9 @@ stage('SonarQube') {
         }
 
 
-        // ============================================================
+        // ========================================================
         // 12. CONTAINER SANITY TEST
-        // ============================================================
+        // ========================================================
 
         stage('Container Sanity Test') {
 
@@ -778,6 +832,14 @@ stage('SonarQube') {
                     echo "============================================================"
 
 
+                    echo
+                    echo "Checking Docker image..."
+
+
+                    docker image inspect "$IMAGE_NAME" >/dev/null
+
+
+                    echo
                     echo "Testing Java runtime inside container..."
 
 
@@ -788,29 +850,27 @@ stage('SonarQube') {
                       -version
 
 
-                    echo "Inspecting Docker image..."
-
-
-                    docker image inspect "$IMAGE_NAME" >/dev/null
-
-
                     echo
-                    echo "Container sanity test passed."
+                    echo "============================================================"
+                    echo "CONTAINER SANITY TEST PASSED"
+                    echo "============================================================"
                 '''
             }
         }
     }
 
 
-    // ================================================================
+    // ============================================================
     // POST ACTIONS
-    // ================================================================
+    // ============================================================
 
     post {
 
         always {
 
             sh '''
+                echo "Cleaning local Docker image..."
+
                 docker image rm "$IMAGE_NAME" \
                   >/dev/null 2>&1 || true
             '''
