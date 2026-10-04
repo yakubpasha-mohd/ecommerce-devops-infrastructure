@@ -1,0 +1,3 @@
+# Keep this file intentionally empty in Phase 3.5.
+# Any exception must be reviewed, documented with a reason and expiry date,
+# and added explicitly rather than globally suppressing vulnerabilities.
