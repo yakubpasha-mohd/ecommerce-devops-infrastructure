@@ -460,12 +460,7 @@ pipeline {
             }
         }
 
-
-        // ============================================================
-// 8. SONARQUBE - AUTOMATIC
-// ============================================================
-
-stage('SonarQube') {
+        stage('SonarQube') {
 
     steps {
 
@@ -474,12 +469,10 @@ stage('SonarQube') {
         echo '============================================================'
 
         withCredentials([
-
             string(
                 credentialsId: 'sonar-token',
                 variable: 'SONAR_TOKEN'
             )
-
         ]) {
 
             withSonarQubeEnv('SonarQube') {
@@ -503,7 +496,7 @@ stage('SonarQube') {
                       -Dsonar.projectName=ecommerce-user-service \
                       -Dsonar.host.url="$SONAR_HOST_URL" \
                       -Dsonar.token="$SONAR_TOKEN" \
-                      sonar:sonar
+                      org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
 
                     echo
                     echo "============================================================"
