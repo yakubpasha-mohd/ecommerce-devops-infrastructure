@@ -67,8 +67,8 @@ pipeline {
 
         string(
             name: 'ECR_REPOSITORY',
-            defaultValue: 'ecommerce/user-service',
-            description: 'AWS ECR repository name'
+            defaultValue: 'ecommerce/application',
+            description: 'AWS ECR repository name for the combined frontend + backend image'
         )
     }
 
@@ -838,7 +838,7 @@ pipeline {
 
 
             archiveArtifacts(
-                artifacts: 'ecommerce-app/services/user-service/target/*.jar,ecommerce-app/frontend/dist/**',
+                artifacts: 'ecommerce-app/services/user-service/target/*.jar,ecommerce-app/services/frontend/dist/**',
                 allowEmptyArchive: true,
                 fingerprint: true
             )
