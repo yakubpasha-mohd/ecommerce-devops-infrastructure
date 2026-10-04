@@ -90,7 +90,10 @@ pipeline {
             steps {
                 sh '''
                     set -eux
-                    if find infrastructure -type f \( -name '*.tf' -o -name '*.tf.json' -o -name '*.yaml' -o -name '*.yml' \) | grep -q .; then
+                    if find infrastructure -type f -name '*.tf' -print -quit | grep -q . ||
+                       find infrastructure -type f -name '*.tf.json' -print -quit | grep -q . ||
+                       find infrastructure -type f -name '*.yaml' -print -quit | grep -q . ||
+                       find infrastructure -type f -name '*.yml' -print -quit | grep -q .; then
                       checkov -d infrastructure --quiet --compact
                     else
                       echo 'No Terraform/IaC files found in infrastructure yet; Checkov stage is informational.'
