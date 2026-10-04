@@ -462,109 +462,90 @@ pipeline {
 
 
         // ============================================================
-        // 8. SONARQUBE - AUTOMATIC
-        // ============================================================
+// 8. SONARQUBE - AUTOMATIC
+// ============================================================
 
-        stage('SonarQube') {
+stage('SonarQube') {
 
-            steps {
+    steps {
 
-                echo '============================================================'
-                echo 'SONARQUBE CODE ANALYSIS'
-                echo '============================================================'
+        echo '============================================================'
+        echo 'SONARQUBE CODE ANALYSIS'
+        echo '============================================================'
+
+        withCredentials([
+
+            string(
+                credentialsId: 'sonar-token',
+                variable: 'SONAR_TOKEN'
+            )
+
+        ]) {
+
+            withSonarQubeEnv('SonarQube') {
+
+                sh '''
+                    set -eux
+
+                    echo "============================================================"
+                    echo "SONARQUBE ANALYSIS"
+                    echo "============================================================"
+
+                    echo "SonarQube URL: $SONAR_HOST_URL"
+                    echo "Project Key: ecommerce-user-service"
+
+                    test -f "$SERVICE_DIR/pom.xml"
+
+                    mvn -B -ntp \
+                      -f "$SERVICE_DIR/pom.xml" \
+                      -DskipTests \
+                      -Dsonar.projectKey=ecommerce-user-service \
+                      -Dsonar.projectName=ecommerce-user-service \
+                      -Dsonar.host.url="$SONAR_HOST_URL" \
+                      -Dsonar.token="$SONAR_TOKEN" \
+                      sonar:sonar
+
+                    echo
+                    echo "============================================================"
+                    echo "SONARQUBE ANALYSIS COMPLETED"
+                    echo "============================================================"
+                '''
+            }
 
 
-                withCredentials([
+            echo '============================================================'
+            echo 'WAITING FOR SONARQUBE QUALITY GATE'
+            echo '============================================================'
 
-                    string(
-                        credentialsId: 'sonar-token',
-                        variable: 'SONAR_TOKEN'
+
+            timeout(
+                time: 10,
+                unit: 'MINUTES'
+            ) {
+
+                script {
+
+                    def qualityGate = waitForQualityGate(
+                        abortPipeline: false
                     )
 
-                ]) {
+                    echo "SonarQube Quality Gate: ${qualityGate.status}"
 
+                    if (qualityGate.status != 'OK') {
 
-                    /*
-                     * SonarQube server configuration comes from:
-                     *
-                     * Jenkins
-                     * Manage Jenkins
-                     * System
-                     * SonarQube servers
-                     *
-                     * Name:
-                     * SonarQube
-                     *
-                     * URL:
-                     * http://3.221.55.212:9000
-                     */
-
-                    withSonarQubeEnv('SonarQube') {
-
-                        sh '''
-                            set -eux
-
-                            echo "============================================================"
-                            echo "SONARQUBE ANALYSIS"
-                            echo "============================================================"
-
-                            echo "SonarQube URL: $SONAR_HOST_URL"
-                            echo "Project Key: ecommerce-user-service"
-
-                            test -f "$SERVICE_DIR/pom.xml"
-
-
-                            mvn -B -ntp \
-                              -f "$SERVICE_DIR/pom.xml" \
-                              -DskipTests \
-                              -Dsonar.projectKey=ecommerce-user-service \
-                              -Dsonar.projectName=ecommerce-user-service \
-                              -Dsonar.host.url="$SONAR_HOST_URL" \
-                              -Dsonar.token="$SONAR_TOKEN" \
-                              sonar:sonar
-
-
-                            echo
-                            echo "============================================================"
-                            echo "SONARQUBE ANALYSIS COMPLETED"
-                            echo "============================================================"
-                        '''
-                    }
-
-
-                    echo '============================================================'
-                    echo 'WAITING FOR SONARQUBE QUALITY GATE'
-                    echo '============================================================'
-
-
-                    timeout(
-                        time: 10,
-                        unit: 'MINUTES'
-                    ) {
-
-                        def qualityGate = waitForQualityGate(
-                            abortPipeline: false
+                        error(
+                            "SonarQube Quality Gate failed: ${qualityGate.status}"
                         )
-
-
-                        echo "SonarQube Quality Gate: ${qualityGate.status}"
-
-
-                        if (qualityGate.status != 'OK') {
-
-                            error(
-                                "SonarQube Quality Gate failed: ${qualityGate.status}"
-                            )
-                        }
-
-
-                        echo '============================================================'
-                        echo 'SONARQUBE QUALITY GATE PASSED'
-                        echo '============================================================'
                     }
+
+                    echo '============================================================'
+                    echo 'SONARQUBE QUALITY GATE PASSED'
+                    echo '============================================================'
                 }
             }
         }
+    }
+}
 
 
         // ============================================================
