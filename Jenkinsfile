@@ -460,7 +460,11 @@ pipeline {
             }
         }
 
-        stage('SonarQube') {
+        // ============================================================
+// 8. SONARQUBE
+// ============================================================
+
+stage('SonarQube') {
 
     steps {
 
@@ -468,12 +472,18 @@ pipeline {
         echo 'SONARQUBE CODE ANALYSIS'
         echo '============================================================'
 
+
         withCredentials([
             string(
                 credentialsId: 'sonar-token',
                 variable: 'SONAR_TOKEN'
             )
         ]) {
+
+
+            // ----------------------------------------------------
+            // SONARQUBE ANALYSIS
+            // ----------------------------------------------------
 
             withSonarQubeEnv('SonarQube') {
 
@@ -489,6 +499,7 @@ pipeline {
 
                     test -f "$SERVICE_DIR/pom.xml"
 
+
                     mvn -B -ntp \
                       -f "$SERVICE_DIR/pom.xml" \
                       -DskipTests \
@@ -498,13 +509,18 @@ pipeline {
                       -Dsonar.token="$SONAR_TOKEN" \
                       org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
 
+
                     echo
                     echo "============================================================"
-                    echo "SONARQUBE ANALYSIS COMPLETED"
+                    echo "SONARQUBE ANALYSIS SUBMITTED"
                     echo "============================================================"
                 '''
             }
 
+
+            // ----------------------------------------------------
+            // QUALITY GATE
+            // ----------------------------------------------------
 
             echo '============================================================'
             echo 'WAITING FOR SONARQUBE QUALITY GATE'
@@ -522,18 +538,29 @@ pipeline {
                         abortPipeline: false
                     )
 
-                    echo "SonarQube Quality Gate: ${qualityGate.status}"
 
-                    if (qualityGate.status != 'OK') {
+                    echo '============================================================'
+                    echo "SONARQUBE QUALITY GATE STATUS: ${qualityGate.status}"
+                    echo '============================================================'
+
+
+                    if (qualityGate.status == 'OK') {
+
+                        echo '============================================================'
+                        echo 'SONARQUBE QUALITY GATE PASSED'
+                        echo '============================================================'
+
+                    } else {
+
+                        echo '============================================================'
+                        echo "SONARQUBE QUALITY GATE FAILED"
+                        echo "Status: ${qualityGate.status}"
+                        echo '============================================================'
 
                         error(
                             "SonarQube Quality Gate failed: ${qualityGate.status}"
                         )
                     }
-
-                    echo '============================================================'
-                    echo 'SONARQUBE QUALITY GATE PASSED'
-                    echo '============================================================'
                 }
             }
         }
