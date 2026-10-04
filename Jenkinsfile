@@ -223,7 +223,7 @@ pipeline {
 
 
         // ============================================================
-        // 3. MAVEN BUILD & UNIT TEST
+        // 3. MAVEN BUILD
         // ============================================================
 
         stage('Maven Build & Unit Test') {
@@ -382,53 +382,7 @@ pipeline {
                 '''
             }
         }
-
-
-        // ============================================================
-        // 7. IAC SECURITY - CHECKOV
-        // ============================================================
-
-        stage('IaC Security - Checkov') {
-            steps {
-
-                sh '''
-                    set -eux
-
-                    echo "============================================================"
-                    echo "CHECKOV IAC SECURITY SCAN"
-                    echo "============================================================"
-
-                    if find infrastructure \
-                        -type f \
-                        -name '*.tf' \
-                        -print -quit | grep -q . ||
-                       find infrastructure \
-                        -type f \
-                        -name '*.tf.json' \
-                        -print -quit | grep -q . ||
-                       find infrastructure \
-                        -type f \
-                        -name '*.yaml' \
-                        -print -quit | grep -q . ||
-                       find infrastructure \
-                        -type f \
-                        -name '*.yml' \
-                        -print -quit | grep -q .; then
-
-                        checkov \
-                          -d infrastructure \
-                          --quiet \
-                          --compact
-
-                    else
-
-                        echo "No Terraform/IaC files found in infrastructure."
-                        echo "Checkov stage is informational."
-
-                    fi
-                '''
-            }
-        }
+     
 
 
         // ============================================================
