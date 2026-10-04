@@ -331,7 +331,7 @@ pipeline {
 
                     CONTAINER_NAME="ecommerce-frontend-sanity-${BUILD_NUMBER}"
 
-                    docker run -d                       --name "$CONTAINER_NAME"                       -p 18080:80                       "$FRONTEND_IMAGE"
+                    docker run -d                       --name "$CONTAINER_NAME"                       -p 18080:8080                       "$FRONTEND_IMAGE"
 
                     trap 'docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true' EXIT
 
