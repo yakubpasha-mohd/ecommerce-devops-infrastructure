@@ -77,18 +77,15 @@ pipeline {
     // ENVIRONMENT
     // ============================================================
 
-    environment {
+      environment {
+    APP_DIR = 'ecommerce-app'
+    SERVICE_DIR = 'ecommerce-app/services/user-service'
+    FRONTEND_DIR = 'ecommerce-app/services/frontend'
 
-        APP_DIR = 'ecommerce-app'
+    IMAGE_NAME = "ecommerce-application:${BUILD_NUMBER}"
 
-        SERVICE_DIR = 'ecommerce-app/services/user-service'
-
-        FRONTEND_DIR = 'ecommerce-app/frontend'
-
-        IMAGE_NAME = "ecommerce-application:${BUILD_NUMBER}"
-
-        TRIVY_CACHE_DIR = "${WORKSPACE}/.trivy-cache"
-    }
+    TRIVY_CACHE_DIR = "${WORKSPACE}/.trivy-cache"
+}
 
 
     // ============================================================
