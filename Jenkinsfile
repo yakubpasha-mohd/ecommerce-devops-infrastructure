@@ -203,43 +203,7 @@ pipeline {
                     echo "APPLICATION DIRECTORY"
                     echo "============================================================"
 
-                    ls -la "$APP_DIR"
-
-
-                    echo
-                    echo "============================================================"
-                    echo "FRONTEND DIRECTORY"
-                    echo "============================================================"
-
-                    test -d "$FRONTEND_DIR"
-
-                    ls -la "$FRONTEND_DIR"
-
-                    test -f "$FRONTEND_DIR/package.json"
-
-
-                    echo
-                    echo "============================================================"
-                    echo "BACKEND SERVICE DIRECTORY"
-                    echo "============================================================"
-
-                    test -d "$SERVICE_DIR"
-
-                    ls -la "$SERVICE_DIR"
-
-                    test -f "$SERVICE_DIR/pom.xml"
-
-
-                    echo
-                    echo "============================================================"
-                    echo "COMBINED DOCKERFILE"
-                    echo "============================================================"
-
-                    test -f "$APP_DIR/Dockerfile"
-
-                    ls -lh "$APP_DIR/Dockerfile"
-
-
+                    ls -la "$APP_DIR"                   
                     echo
                     echo "============================================================"
                     echo "APPLICATION GIT COMMIT"
