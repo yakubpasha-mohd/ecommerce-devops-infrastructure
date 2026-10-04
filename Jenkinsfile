@@ -62,10 +62,11 @@ pipeline {
     environment {
 
         /*
-         * DevOps repository is checked out by Jenkins SCM.
+         * DevOps repository:
+         * Checked out by Jenkins SCM.
          *
-         * Application repository is checked out separately
-         * into ecommerce-app.
+         * Application repository:
+         * Checked out separately into ecommerce-app.
          */
         APP_DIR = 'ecommerce-app'
 
@@ -75,12 +76,12 @@ pipeline {
         SERVICE_DIR = 'ecommerce-app/services/user-service'
 
         /*
-         * Docker image name.
+         * Docker image.
          */
         IMAGE_NAME = "ecommerce-user-service:${BUILD_NUMBER}"
 
         /*
-         * Trivy filesystem/image cache.
+         * Trivy cache.
          */
         TRIVY_CACHE_DIR = "${WORKSPACE}/.trivy-cache"
     }
@@ -222,10 +223,10 @@ pipeline {
 
 
         // ============================================================
-        // 3. MAVEN UNIT TEST
+        // 3. MAVEN BUILD & UNIT TEST
         // ============================================================
 
-        stage('Backend Unit Test') {
+        stage('Maven Build & Unit Test') {
             steps {
 
                 dir(env.SERVICE_DIR) {
@@ -234,10 +235,38 @@ pipeline {
                         set -eux
 
                         echo "============================================================"
-                        echo "MAVEN CLEAN TEST"
+                        echo "MAVEN BUILD & UNIT TEST"
                         echo "============================================================"
 
-                        mvn -B -ntp clean test
+                        echo "Service directory:"
+                        pwd
+
+                        echo
+                        echo "Maven version:"
+                        mvn -version
+
+                        echo
+                        echo "Maven POM:"
+                        ls -lh pom.xml
+
+                        echo
+                        echo "Running Maven clean verify..."
+
+                        mvn -B -ntp clean verify
+
+                        echo
+                        echo "============================================================"
+                        echo "MAVEN BUILD SUCCESSFUL"
+                        echo "============================================================"
+
+                        echo
+                        echo "Generated JAR files:"
+
+                        find target \
+                          -maxdepth 2 \
+                          -type f \
+                          -name '*.jar' \
+                          -print
                     '''
                 }
             }
@@ -301,7 +330,7 @@ pipeline {
 
 
         // ============================================================
-        // 5. SEMGREP
+        // 5. STATIC SECURITY - SEMGREP
         // ============================================================
 
         stage('Static Security - Semgrep') {
@@ -328,7 +357,7 @@ pipeline {
 
 
         // ============================================================
-        // 6. TRIVY FILESYSTEM SECURITY
+        // 6. FILESYSTEM SECURITY - TRIVY
         // ============================================================
 
         stage('Filesystem Security - Trivy') {
@@ -356,7 +385,7 @@ pipeline {
 
 
         // ============================================================
-        // 7. CHECKOV
+        // 7. IAC SECURITY - CHECKOV
         // ============================================================
 
         stage('IaC Security - Checkov') {
@@ -403,7 +432,7 @@ pipeline {
 
 
         // ============================================================
-        // 8. OWASP DEPENDENCY CHECK
+        // 8. DEPENDENCY SECURITY - OWASP
         // ============================================================
 
         stage('Dependency Security - OWASP') {
