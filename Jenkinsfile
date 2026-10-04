@@ -418,63 +418,66 @@ pipeline {
             }
         }
 
+// ============================================================
+// 9. SONARQUBE
+// ============================================================
 
-        // ============================================================
-        // 9. SONARQUBE
-        // ============================================================
+stage('SonarQube') {
 
-        stage('SonarQube') {
+    when {
+        expression {
+            params.RUN_SONAR
+        }
+    }
 
-            when {
-                expression {
-                    params.RUN_SONAR
-                }
+    steps {
+
+        withCredentials([
+            string(
+                credentialsId: 'sonar-token',
+                variable: 'SONAR_TOKEN'
+            )
+        ]) {
+
+            withSonarQubeEnv('SonarQube') {
+
+                sh '''
+                    set -eux
+
+                    echo "============================================================"
+                    echo "SONARQUBE ANALYSIS"
+                    echo "============================================================"
+
+                    echo "SonarQube URL: $SONAR_HOST_URL"
+                    echo "Project Key: ecommerce-user-service"
+
+                    mvn -B -ntp \
+                      -f "$SERVICE_DIR/pom.xml" \
+                      -DskipTests \
+                      -Dsonar.projectKey=ecommerce-user-service \
+                      -Dsonar.projectName=ecommerce-user-service \
+                      -Dsonar.host.url="$SONAR_HOST_URL" \
+                      -Dsonar.token="$SONAR_TOKEN" \
+                      sonar:sonar
+                '''
             }
 
-            steps {
+            sh '''
+                set -eu
 
-                withCredentials([
-                    string(
-                        credentialsId: 'sonar-token',
-                        variable: 'SONAR_TOKEN'
-                    )
-                ]) {
+                echo "============================================================"
+                echo "SONARQUBE QUALITY GATE"
+                echo "============================================================"
 
-                    sh '''
-                        set -eux
+                : "${SONAR_HOST_URL:?SONAR_HOST_URL is required}"
 
-                        echo "============================================================"
-                        echo "SONARQUBE ANALYSIS"
-                        echo "============================================================"
+                for i in $(seq 1 30); do
 
-                        : "${SONAR_HOST_URL:?SONAR_HOST_URL is required}"
-
-                        mvn -B -ntp \
-                          -f "$SERVICE_DIR/pom.xml" \
-                          -DskipTests \
-                          -Dsonar.projectKey=ecommerce-user-service \
-                          -Dsonar.projectName=ecommerce-user-service \
-                          -Dsonar.host.url="$SONAR_HOST_URL" \
-                          -Dsonar.token="$SONAR_TOKEN" \
-                          sonar:sonar
-                    '''
-
-                    sh '''
-                        set -eu
-
-                        echo "============================================================"
-                        echo "SONARQUBE QUALITY GATE"
-                        echo "============================================================"
-
-                        : "${SONAR_HOST_URL:?SONAR_HOST_URL is required}"
-
-                        for i in $(seq 1 30); do
-
-                            STATUS=$(
-                                curl -sf \
-                                  -u "$SONAR_TOKEN:" \
-                                  "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=ecommerce-user-service" \
-                                | python3 -c '
+                    STATUS=$(
+                        curl -sf \
+                          -u "$SONAR_TOKEN:" \
+                          "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=ecommerce-user-service" \
+                        | python3 -c '
 import json
 import sys
 
@@ -490,29 +493,31 @@ print(
     )
 )
 '
-                            ) || STATUS=PENDING
+                    ) || STATUS=PENDING
 
-                            echo "Quality Gate status: $STATUS"
+                    echo "Quality Gate status: $STATUS"
 
-                            if [ "$STATUS" = "OK" ]; then
-                                exit 0
-                            fi
+                    if [ "$STATUS" = "OK" ]; then
+                        echo "SonarQube Quality Gate PASSED"
+                        exit 0
+                    fi
 
-                            if [ "$STATUS" = "ERROR" ]; then
-                                exit 1
-                            fi
-
-                            sleep 10
-
-                        done
-
-                        echo "SonarQube Quality Gate did not finish in expected time."
-
+                    if [ "$STATUS" = "ERROR" ]; then
+                        echo "SonarQube Quality Gate FAILED"
                         exit 1
-                    '''
-                }
-            }
+                    fi
+
+                    sleep 10
+
+                done
+
+                echo "SonarQube Quality Gate did not finish in expected time."
+
+                exit 1
+            '''
         }
+    }
+}
 
 
         // ============================================================
