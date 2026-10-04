@@ -28,11 +28,11 @@ pipeline {
             description: 'Application Git branch'
         )
 
-        booleanParam(
-            name: 'RUN_SONAR',
-            defaultValue: false,
-            description: 'Run SonarQube analysis. Requires sonar-token credential and SONAR_HOST_URL.'
-        )
+      string(
+          name: 'SONAR_HOST_URL',
+          defaultValue: 'http://3.221.55.212:9000',
+          description: 'SonarQube server URL'
+       )
 
         booleanParam(
             name: 'RUN_DEPENDENCY_CHECK',
@@ -84,6 +84,7 @@ pipeline {
          * Trivy cache.
          */
         TRIVY_CACHE_DIR = "${WORKSPACE}/.trivy-cache"
+        SONAR_HOST_URL = 'http://3.221.55.212:9000'
     }
 
     stages {
